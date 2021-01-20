@@ -1,7 +1,7 @@
 from storageManager.jsonMode import *
 class Arbol():
     'Esta clase almacenará todas las instrucciones, errores y mensajes.'
-    def __init__(self, instrucciones):
+    def __init__(self, instrucciones = None):
         self.instrucciones = instrucciones
         self.excepciones = []
         self.consola = []
@@ -18,6 +18,7 @@ class Arbol():
         self.comprobacionCreate = False
         self.columnaCheck = None
         self.order = None
+        self.lista_funciones = []
 
     def setEnum(self, nuevo):
         self.lEnum.append(nuevo)

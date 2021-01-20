@@ -20,12 +20,33 @@ def load_st():
 
 
 def exec_sql(input_string):
+    #symbol_table = load_st()
+    #execute_from_wrapper(symbol_table, input_string)
+    #save_st(symbol_table)
+    o = GrammarGenerate(input_string)
+    return o.GO()
+
+
+def report_stored_st():
     symbol_table = load_st()
-    execute_from_wrapper(symbol_table, input_string)
-    save_st(symbol_table)
+    symbol_table.report_symbols()
 
 
 def clear_all_execution():
     if os.path.exists('stored_st.bin'):
         os.remove('stored_st.bin')
     shutil.rmtree('data')
+
+#TODO: implement IT
+stack = []
+def push(arg):
+    stack.append(arg)
+
+def pop():
+    size = len(stack)    
+    if size > 0:
+        obj = stack.pop(size-1)
+        return obj
+    else:
+        print('Stack empty :\'(')
+    return None

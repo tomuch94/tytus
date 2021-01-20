@@ -4,6 +4,11 @@ from views.data_window import DataWindow
 from models.instructions.shared import *
 from models.instructions.Expression.expression import *
 from models.instructions.DML.special_functions import *
+from controllers.procedures import Procedures
+from models.Other.ambito import Ambito
+from models.instructions.Expression.expression import ColumnsTypes
+from models.Other.funcion import Funcion
+from models.procedural.if_statement import anidarIFs, If
 import pandas as pd 
 class Union(Instruction):
     def __init__(self,  array_instr, type_union,line, column) :
@@ -20,14 +25,47 @@ class Select(Instruction):
     '''
         SELECT recibe un array con todas los parametros
     '''
-    def __init__(self,  instrs, order_option, limit_option) :
+    def __init__(self,  instrs, order_option, limit_option, tac) :
         self.instrs = instrs
         self.order_option = order_option
         self.limit_option = limit_option
         self.alias = f'{self.instrs.alias}'
+        self._tac = ''
+        self.line = 0
+        self.column = 0
+
     def __repr__(self):
         return str(vars(self))
-    
+
+    def compile(self, environment):
+        database_id = SymbolTable().useDatabase
+        #ejecutando si hay llamada a alguna funcion
+        temps_array = self.instrs.compile(environment) 
+        new_val = None
+        if temps_array is not None:
+            new_val = putVarValues(self._tac, temps_array, environment)
+        else:
+            new_val = self._tac
+            
+        temp = ''
+
+        if new_val == self._tac: #Es un temporal --- quitar comillas
+
+            temp = ThreeAddressCode().newTemp()
+
+            if database_id is not None:
+                ThreeAddressCode().addCode(f"{temp} = \"USE {database_id}; {new_val}\"")
+            else:
+                ThreeAddressCode().addCode(f"{temp} = \"{new_val}\"")
+        else:
+            temp = new_val
+
+        #LLAMANDO A FUNCION PARA ANALIZAR ESTA COCHINADA
+        temp1 = ThreeAddressCode().newTemp()
+        ThreeAddressCode().addCode(f"{temp1} = parse({temp})")
+
+        return temp1
+
     def process(self, instrucction):
         instr = None
         order = None
@@ -66,9 +104,12 @@ class TypeQuerySelect(Instruction):
         self.line = line
         self.column = column
         self.alias = f'{arr_select[0].alias}'
+        self._tac = ""
     def __repr__(self):
         return str(vars(self))
     
+    def compile(self, environment):
+        pass
     def process(self, instrucction):
         select1 = None
         select2 = None
@@ -130,10 +171,19 @@ class SelectQ(Instruction):
             self.alias = f'{from_clause.alias}'
         self.line = line
         self.column = column
+        self._tac = self.alias
 
     def __repr__(self):
         return str(vars(self))
     
+    def compile(self, instrucction):
+        temps_array = [] 
+        for val in self.select_list:
+            if isinstance(val, Funcion):
+               temps_array.append( val.compile(instrucction) ) 
+
+        return temps_array
+
     def process(self, instrucction):
         list_select = None
         # print(self.alias)
@@ -376,6 +426,7 @@ class OrderClause(Instruction):
         self.type_order = type_order
         self.line = line
         self.column = column
+        self._tac = ''
 
     def __repr__(self):
         return str(vars(self))
@@ -411,6 +462,7 @@ class LimitClause(Instruction):
         self.offset = offset
         self.line = line
         self.column = column
+        self._tac = ''
         
     def __repr__(self):
         return str(vars(self))
@@ -462,38 +514,58 @@ class AgreggateFunctions(Instruction):
         self.alias = f'{self.type_agg}({cont_agg.alias})'
         self.line = line
         self.column = column
+        self._tac = ""
+        self.is_group = False
     def __repr__(self):
         return str(vars(self))
     
     def process(self, instrucction):
         data = None
         try:
-            result = self.cont_agg.process(instrucction)
-            if isinstance(result, list):
-                if self.type_agg.lower() == "avg":
-                    data = {str(self.alias): 'mean'}
-                elif self.type_agg.lower() == 'sum':
-                    data = {str(self.alias): 'sum'}
-                elif self.type_agg.lower() == 'count':
-                    data = {str(self.alias): 'size'}
-                elif self.type_agg.lower() == 'max':
-                    data = {str(self.alias): 'max'}
-                elif self.type_agg.lower() == 'min':
-                    data = {str(self.alias): 'min'}
-                    #dict  # column  # encambezado
-                return [result[0], result[1], data]
+            if not self.is_group:
+                result = self.cont_agg.process(instrucction)
+                if isinstance(result, list):
+                    if self.type_agg.lower() == "avg":
+                        data = {str(self.alias): 'mean'}
+                    elif self.type_agg.lower() == 'sum':
+                        data = {str(self.alias): 'sum'}
+                    elif self.type_agg.lower() == 'count':
+                        data = {str(self.alias): 'size'}
+                    elif self.type_agg.lower() == 'max':
+                        data = {str(self.alias): 'max'}
+                    elif self.type_agg.lower() == 'min':
+                        data = {str(self.alias): 'min'}
+                        #dict  # column  # encambezado
+                    return [result[0], result[1], data]
+                else:
+                    if self.type_agg.lower() == "avg":
+                        data = {str(self.alias.lower()): 'mean'}
+                    elif self.type_agg.lower() == 'sum':
+                        data = {str(self.alias.lower()): 'sum'}
+                    elif self.type_agg.lower() == 'count':
+                        data = {str(result.value): 'size'}
+                    elif self.type_agg.lower() == 'max':
+                        data = {str(self.alias.lower()): 'max'}
+                    elif self.type_agg.lower() == 'min':
+                        data = {str(self.alias.lower()): 'min'}
+                    return [data, result.value, self.type_agg]
             else:
-                if self.type_agg.lower() == "avg":
-                    data = {str(self.alias.lower()): 'mean'}
-                elif self.type_agg.lower() == 'sum':
-                    data = {str(self.alias.lower()): 'sum'}
-                elif self.type_agg.lower() == 'count':
-                    data = {str(result.value): 'size'}
-                elif self.type_agg.lower() == 'max':
-                    data = {str(self.alias.lower()): 'max'}
-                elif self.type_agg.lower() == 'min':
-                    data = {str(self.alias.lower()): 'min'}
-                return [data, result.value, self.type_agg]
+                result = self.cont_agg.process(instrucction)
+                if isinstance(result, list):
+                    if self.type_agg.lower() == "avg":
+                        data = sum(result[0]) / len(result[0])
+                    elif self.type_agg.lower() == 'sum':
+                        data = sum(result[0])
+                    elif self.type_agg.lower() == 'count':
+                        data = len(result[0])
+                    elif self.type_agg.lower() == 'max':
+                        data = max(result[0])
+                    elif self.type_agg.lower() == 'min':
+                        data = min(result[0])
+                            #valores  # column  # encambezado
+                    return [[data], result[1]]
+                else:
+                    return result.value
         except:
             desc = "FATAL ERROR, murio en AgreggateFunctions, F"
             ErrorController().add(34, 'Execution', desc, self.line, self.column)
@@ -502,11 +574,12 @@ class Case(Instruction):
     '''
         CASE recibe un array con todas las opciones y un else
     '''
-    def __init__(self, arr_op, c_else,line, column): 
-        self.arr_op = arr_op
-        self.c_else = c_else
+    def __init__(self, var_id, arr_cases, _else, line, column): 
+        self.arr_cases = arr_cases
+        self._else = _else
         self.line = line
         self.column = column
+        self.var_id = var_id
         
     def __repr__(self):
         return str(vars(self))
@@ -514,13 +587,26 @@ class Case(Instruction):
     def process(self, instrucction):
         pass
 
+    def compile(self, environment):
+        if self.var_id is not None:
+
+            for case in self.arr_cases:
+                if type(case.condition) is list and len(case.condition) > 1:
+                    case.condition = genTempsOr(0, case.condition, self.var_id)
+
+                elif type(case.condition) is list:
+                    case.condition = case.condition[0]
+
+        caseToIfs = anidarIFs(0, self.arr_cases, self._else)
+        caseToIfs.compile(environment)
+
 class CaseOption(Instruction):
     '''
         CASE OPTION
     '''
-    def __init__(self, when_exp, then_exp,line, column):
-        self.when_exp = when_exp
-        self.then_exp = then_exp
+    def __init__(self, condition, instructions, line, column):
+        self.condition = condition
+        self.instructions = instructions
         self.line = line
         self.column = column
     def __repr__(self):
@@ -528,3 +614,21 @@ class CaseOption(Instruction):
 
     def process(self, instrucction):
         pass  
+    
+    def compile(self, instrucction):
+        pass
+
+def genTempsOr(counter, array_conditions, id):
+    condition = None
+    line = 0 
+    column = 0
+    if counter < len(array_conditions)-1:
+        line = array_conditions[counter].line
+        column = array_conditions[counter].column
+
+        igualacion = Relop(id, SymbolsRelop.EQUALS, array_conditions[counter], "=", line, column)
+        condition = LogicalOperators(igualacion, "or", genTempsOr(counter + 1, array_conditions, id), line, column)
+    else:
+        condition = Relop(id, SymbolsRelop.EQUALS, array_conditions[counter], "=", line, column)
+
+    return condition

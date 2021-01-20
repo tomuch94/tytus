@@ -3,7 +3,8 @@ import sys
 import platform
 from nodeAst import nodeAst
 import ascendente as analizador
-
+import traductor as generador
+import reportes as h
 #jossie
 from storageManager import jsonMode as j
 import pandas as pd
@@ -19,14 +20,16 @@ from tkinter import messagebox
 from CustomText import CustomText
 #For managing the Line Numbers in the text area
 from TextLine import TextLineNumbers
+import optimizacionCodigo3D as optimizador
+
 
 class Interfaz(tk.Frame):
     def __init__(self, *args, **kwargs):
         self.root = root
         tk.Frame.__init__(self, *args, **kwargs)
-        self.m_carga_de_informacion()
+       
+        
         self.filename = None
-
         self.terminal = tk.Text(root, width=75, height=1, background="black",foreground="#00AA00")
         self.terminal.pack(side="right", fill="both", expand=True)
 
@@ -66,12 +69,16 @@ class Interfaz(tk.Frame):
         file_dropdown.add_command(label="Salir", command=self.end)
 
         run_dropdown.add_command(label="Ejecutar Ascendente", command=self.ejecutar_ascendente)
+        run_dropdown.add_command(label="Traducir 3D", command=self.traducir_3D)
+        run_dropdown.add_command(label="Ejecutar 3D", command=self.ejecutar_3D)
+        run_dropdown.add_command(label="Optimizar 3D", command=self.optimizar_3D)
         #run_dropdown.add_command(label="Ejecutar Descendente")
 
         report_dropdown.add_command(label="Reporte de Errores", command=self.generarReporteErrores )
         report_dropdown.add_command(label="Reporte AST", command=self.astReport)
         report_dropdown.add_command(label="Reporte de Gramatical", command=self.generarReporteGramatical)
         report_dropdown.add_command(label="Tabla de Simbolos", command=self.generarReporteSimbolos )
+        report_dropdown.add_command(label="Reporte de Optimizacion", command=self.optimizadoReport)
         
         help_dropdown.add_command(label="Acerca de", command=self.about)
         help_dropdown.add_command(label="Manual de Usuario", command=self.m_user)
@@ -128,6 +135,14 @@ class Interfaz(tk.Frame):
 
     def astReport(self):
         analizador.generarASTReport()
+    
+    def optimizadoReport(self):
+        state_script_dir = os.getcwd()
+        report_dir = state_script_dir + "\\Reportes\\OptimizacionDeCodigo.html"
+        optimizador.generar_reporte()
+        print("Si se genero el reporte de errores :D!")
+        edge_path = 'C://Program Files (x86)//Microsoft//Edge//Application/msedge.exe %s'
+        webbrowser.get(edge_path).open(report_dir)
         
 #-------------------------------------------------------Line Number Method---------------------------------------------------------------------
     def _on_change(self, event):
@@ -195,7 +210,43 @@ class Interfaz(tk.Frame):
         except:
             salida=self.terminal.get(1.0,tk.END)
             salida+="TYTTUS>Se genero un error de análisis"
-            self.terminal.insert(tk.END,salida)        
+            self.terminal.insert(tk.END,salida)       
+
+    def traducir_3D(self):
+        x= self.text.get(1.0, tk.END)
+        self.terminal.delete(1.0, tk.END)
+        print(x)
+        try:
+            x=x.replace("and","AND")
+            x=x.replace("or","OR")
+            salida=self.terminal.get(1.0,tk.END)
+            salida+=generador.ejecucionATraduccion(x)
+            self.terminal.insert(tk.END,salida)
+        except:
+            salida=self.terminal.get(1.0,tk.END)
+            salida+="TYTTUS>Se genero un error al traducir"
+            self.terminal.insert(tk.END,salida)
+         
+
+    def ejecutar_3D(self):
+        x= self.text.get(1.0, tk.END)
+        self.terminal.delete(1.0, tk.END)
+        print(x)
+
+        salida=self.terminal.get(1.0,tk.END)
+        exec(x)
+        salida+=h.textosalida
+        self.terminal.insert(tk.END,salida) 
+
+
+    def optimizar_3D(self):
+        x= self.text.get(1.0, tk.END)
+        self.terminal.delete(1.0, tk.END)
+        print(x)
+        salida=self.terminal.get(1.0,tk.END)
+        optimizador.optimizacion_de_codigo(x) 
+        salida+=h.textosalida
+        self.terminal.insert(tk.END,salida) 
 #-------------------------------------------------------Help Menu Methods---------------------------------------------------------------------
     def about(self):
         box_tilte ="Autor"
@@ -226,41 +277,7 @@ class Interfaz(tk.Frame):
             box_msg = "El archivo que trata de acceder no existe"
             messagebox.showerror(box_tilte,box_msg)
     
-    def m_carga_de_informacion(self):
-        # drop all databases if exists
-        j.dropAll()
-
-        # create database
-        j.createDatabase('BD1')
-
-        # create tables
-        j.createTable('BD1', 'personas', 5)
-        j.createTable('BD1', 'pais',    4)
-        j.createTable('BD1', 'idiomas', 4)
-
-        # create simple primary keys
-        j.alterAddPK('BD1', 'personas', [0])
-        j.alterAddPK('BD1', 'pais',    [0])
-        j.alterAddPK('BD1', 'idiomas', [0])
-
-        # insert data in countries
-        j.insert('BD1', 'pais', ['GTM', 'Guatemala',  'Central America', 108889])
-        j.insert('BD1', 'pais', ['MX', 'Mexico', 'Norte America',  21041])  
-        j.insert('BD1', 'pais', ['EEUU', 'Estados Unidos', 'Norte America',  21041]) 
-
-        # insert data in cities
-        j.insert('BD1', 'personas', [1, 'Jossie',    'Castrillo','27',    'GTM'])
-        j.insert('BD1', 'personas', [2, 'Juanpi',    'Garcia','27',    'GTM'])
-        j.insert('BD1', 'personas', [3, 'Byron',    'Cermeno','27',    'GTM'])
-        j.insert('BD1', 'personas', [4, 'Hayrton',    'Ixpata','27',    'GTM'])
-        j.insert('BD1', 'personas', [5, 'Dulce',    'DeLeon','25',    'MX'])
-        j.insert('BD1', 'personas', [6, 'Miguel',    'Basir','26',    'GTM'])
-        j.insert('BD1', 'personas', [7, 'Nose',    'Algo','30',    'EEUU'])
-                
-        # inser data in languages
-        j.insert('BD1', 'idiomas', ['GTM', 'Espanol', 'official',  64.7])
-        j.insert('BD1', 'idiomas', ['EEUU', 'Espanol', 'official', 100.0])
-        j.insert('BD1', 'idiomas', ['MX', 'Espanol', 'official', 100.0])
+    
 #-------------------------------------------------------Main---------------------------------------------------------------------       
 if __name__ == "__main__":
     root = tk.Tk()

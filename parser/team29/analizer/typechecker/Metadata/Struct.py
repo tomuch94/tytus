@@ -29,7 +29,6 @@ def createDatabase(name, mode, owner):
 
 
 def alterDatabaseRename(databaseOld, databaseNew):
-
     for data in Databases:
         if data["name"] == databaseOld:
             data["name"] = databaseNew
@@ -143,7 +142,7 @@ def extractTable(dbName, tableName):
                     return table
             Error.append("Tabla no encontrada")
             return 1
-    Error.append("Dase de datos no encontrada")
+    Error.append("Base de datos no encontrada")
     return 0
 
 
